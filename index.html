@@ -41,22 +41,28 @@
   </div>
 
   <div class="big" id="main">10</div>
-  <div class="sub" id="mode">REST</div>
+  <div class="sub" id="mode">REST (between exercises only)</div>
 
   <div class="row">
     <div>Stretch: <b id="idx">1 / 10</b></div>
     <div>Bumps: <b id="bumpInfo">10 bumps (~10s)</b></div>
     <div>Hold: <b id="holdInfo">10s → 20s → 30s</b></div>
-    <div>Rest: <b id="restInfo">10s</b></div>
+    <div>Rest (on N): <b id="restInfo">10s</b></div>
   </div>
 
   <div class="sub" style="margin-top:14px;line-height:1.6">
-    <span class="kbd">N</span> next stretch · <span class="kbd">P</span> pause · <span class="kbd">R</span> reset<br>
-    <span class="kbd">[</span>/<span class="kbd">]</span> slower/faster bumps · <span class="kbd">-</span>/<span class="kbd">=</span> rest shorter/longer
+    <span class="kbd">N</span> next stretch (with rest) ·
+    <span class="kbd">P</span> pause ·
+    <span class="kbd">R</span> reset<br>
+    <span class="kbd">[</span>/<span class="kbd">]</span> slower/faster bumps ·
+    <span class="kbd">-</span>/<span class="kbd">=</span> rest shorter/longer
   </div>
 </div>
 
 <script>
+/* =========================
+   CONFIG
+========================= */
 const stretches = [
   "1. Shoulder Backbend","2. Spine Backbend","3. Rear Hand Clasp","4. Lying Cross","5. Wrist–Biceps Stretch",
   "6. One-Leg Pike","7. Kneeling Lunge","8. Pancake","9. Butterfly","10. Calf Stretch"
@@ -76,23 +82,27 @@ const svgs = [
   `<svg viewBox="0 0 200 140"><path d="M160 20v110"/><circle cx="80" cy="35" r="10"/><path d="M80 45v45"/><path d="M80 60l60-20"/><path d="M80 90l-25 35"/><path d="M80 90l45 10"/></svg>`
 ];
 
-const holds = [10,20,30];
+const holdCycle = [10,20,30];
 
+// Defaults (you can tweak)
+let bumpCount = 10;
+let secondsPerBump = 1.0; // estimate: ~1 sec per bump => 10 bumps ~ 10s
+let restSeconds = 10;     // ONLY used between exercises when you press N
+
+/* =========================
+   STATE
+========================= */
 let stretchIdx = 0;
 let holdIdx = 0;
 
-// USER-TUNABLE DEFAULTS
-let bumpCount = 10;
-let secondsPerBump = 1.0;     // default estimate: ~1 sec per bump
-let restSeconds = 10;         // default rest between sets
-
-// STATE
-let phase = "rest"; // "rest" | "bump" | "hold"
+let phase = "rest"; // "rest" (only between exercises), "bump", "hold"
 let remaining = restSeconds;
 let paused = false;
 let timer = null;
 
-// DOM
+/* =========================
+   DOM
+========================= */
 const main = document.getElementById("main");
 const mode = document.getElementById("mode");
 const idxEl = document.getElementById("idx");
@@ -104,6 +114,9 @@ const bumpInfo = document.getElementById("bumpInfo");
 const restInfo = document.getElementById("restInfo");
 const holdInfo = document.getElementById("holdInfo");
 
+/* =========================
+   HELPERS
+========================= */
 function beep(freq=880){
   try{
     const ctx = new (window.AudioContext||window.webkitAudioContext)();
@@ -116,15 +129,17 @@ function beep(freq=880){
 }
 
 function bumpDurationSec(){
-  // round to nearest whole second so countdown feels normal
   return Math.max(1, Math.round(bumpCount * secondsPerBump));
+}
+
+function clearTimer(){
+  if(timer){ clearInterval(timer); timer = null; }
 }
 
 function setPhase(newPhase){
   phase = newPhase;
   paused = false;
-
-  if(timer){ clearInterval(timer); timer=null; }
+  clearTimer();
 
   if(phase === "rest"){
     remaining = restSeconds;
@@ -133,12 +148,11 @@ function setPhase(newPhase){
     remaining = bumpDurationSec();
     beep(900);
   } else if(phase === "hold"){
-    remaining = holds[holdIdx];
+    remaining = holdCycle[holdIdx];
     beep(1100);
   }
 
   updateUI();
-
   timer = setInterval(tick, 1000);
 }
 
@@ -151,16 +165,18 @@ function tick(){
 
   if(remaining === 0){
     if(phase === "rest"){
+      // rest ends -> start bumps for this exercise
       setPhase("bump");
     } else if(phase === "bump"){
+      // bumps end -> start hold
       setPhase("hold");
     } else if(phase === "hold"){
-      // advance hold cycle 10 -> 20 -> 30
-      holdIdx = (holdIdx + 1) % holds.length;
-      setPhase("rest");
+      // hold ends -> advance hold cycle, then IMMEDIATELY go back to bumps (no rest inside exercise)
+      holdIdx = (holdIdx + 1) % holdCycle.length;
+      setPhase("bump");
     }
   } else {
-    // little “ending soon” beeps for last 3 seconds of hold only
+    // end-beeps for last 3 seconds of hold
     if(phase === "hold" && remaining <= 3) beep(1200);
   }
 }
@@ -173,28 +189,31 @@ function updateUI(){
 
   bumpInfo.textContent = `${bumpCount} bumps (~${bumpDurationSec()}s)`;
   restInfo.textContent = `${restSeconds}s`;
-  holdInfo.textContent = `current: ${holds[holdIdx]}s (cycle 10→20→30)`;
+  holdInfo.textContent = `current: ${holdCycle[holdIdx]}s (cycle 10→20→30)`;
 
   main.textContent = remaining;
 
   if(phase === "rest"){
     phaseTag.textContent = "REST";
     phaseTag.className = "tag rest";
-    mode.textContent = paused ? "REST — paused" : "REST";
+    mode.textContent = paused ? "REST — paused" : "REST (between exercises)";
   } else if(phase === "bump"){
     phaseTag.textContent = "BUMP";
     phaseTag.className = "tag bump";
-    mode.textContent = paused ? "BUMP — paused" : `BUMP (auto) — simulate ${bumpCount} bumps`;
+    mode.textContent = paused ? "BUMP — paused" : `BUMP (auto) — ${bumpCount} bumps`;
   } else {
     phaseTag.textContent = "HOLD";
     phaseTag.className = "tag hold";
-    mode.textContent = paused ? "HOLD — paused" : `HOLD — ${holds[holdIdx]}s`;
+    mode.textContent = paused ? "HOLD — paused" : `HOLD — ${holdCycle[holdIdx]}s`;
   }
 }
 
+/* =========================
+   CONTROLS
+========================= */
 function nextStretch(){
   stretchIdx = (stretchIdx + 1) % stretches.length;
-  // start new stretch with a rest so you can get into position
+  // between exercises: rest first so you can reposition
   setPhase("rest");
 }
 
@@ -209,21 +228,19 @@ window.addEventListener("keydown", e=>{
   if(e.code === "KeyP") { paused = !paused; updateUI(); }
   if(e.code === "KeyR") resetAll();
 
-  // bump speed adjust:
-  // [ slower -> secondsPerBump +0.1
-  // ] faster -> secondsPerBump -0.1
+  // bump speed adjust: [ slower, ] faster
   if(e.code === "BracketLeft"){
     secondsPerBump = Math.min(3.0, +(secondsPerBump + 0.1).toFixed(1));
-    if(phase === "bump") { remaining = bumpDurationSec(); }
+    if(phase === "bump") remaining = bumpDurationSec();
     updateUI();
   }
   if(e.code === "BracketRight"){
     secondsPerBump = Math.max(0.3, +(secondsPerBump - 0.1).toFixed(1));
-    if(phase === "bump") { remaining = bumpDurationSec(); }
+    if(phase === "bump") remaining = bumpDurationSec();
     updateUI();
   }
 
-  // rest adjust: - shorter, = longer
+  // rest adjust: - shorter, = longer (only affects REST phase)
   if(e.code === "Minus"){
     restSeconds = Math.max(0, restSeconds - 1);
     if(phase === "rest") remaining = restSeconds;
@@ -236,9 +253,11 @@ window.addEventListener("keydown", e=>{
   }
 });
 
-// Start
+/* =========================
+   START
+========================= */
 updateUI();
-setPhase("rest");
+setPhase("rest"); // starts with rest before first exercise too (use - to make it 0 if you want)
 </script>
 </body>
 </html>

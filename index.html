@@ -193,12 +193,9 @@ const imgText=document.getElementById("imgText");
 const phaseTag=document.getElementById("phaseTag");
 
 function speak(text){
-  // Voice cue (Chrome/Edge). If blocked until user interaction, it will work after first keypress.
-  try{
-    speechSynthesis.cancel();
-    speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-  }catch{}
+  // voice disabled
 }
+
 function beep(freq=880){
   try{
     const ctx=new (window.AudioContext||window.webkitAudioContext)();

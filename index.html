@@ -2,31 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Stretch Rep + Hold Timer</title>
+<title>Stretch Auto Bumps + Hold Timer</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
   body{display:flex;align-items:center;justify-content:center;}
-  .card{width:min(1020px,96vw);border:2px solid #fff;border-radius:24px;padding:24px;text-align:center;}
+  .card{width:min(1080px,96vw);border:2px solid #fff;border-radius:24px;padding:24px;text-align:center;}
   h1{margin:0;font-size:20px;letter-spacing:.2px;}
   .stretch{font-size:24px;font-weight:900;margin:8px 0 12px;}
-  .image{
-    width:100%;
-    border:2px solid #fff;border-radius:18px;
-    background:#000;
-    padding:16px 14px;
-    margin-bottom:14px;
-  }
+
+  .image{width:100%;border:2px solid #fff;border-radius:18px;background:#000;padding:16px 14px;margin-bottom:14px;}
   .imgTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
-  .tag{
-    border:1px solid #fff;border-radius:999px;
-    padding:6px 10px;font-weight:900;font-size:12px;letter-spacing:.6px;
-  }
+  .tag{border:1px solid #fff;border-radius:999px;padding:6px 10px;font-weight:900;font-size:12px;letter-spacing:.6px;}
   .tag.hold{background:#fff;color:#000;}
   .tag.bump{background:#000;color:#fff;}
+  .tag.rest{background:#111;color:#fff;}
   .imgLabel{font-weight:900;font-size:14px;opacity:.9;text-align:left;}
   .svgWrap{display:flex;align-items:center;justify-content:center;}
   svg{width:min(360px,70vw);height:240px;stroke:#fff;fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;}
+
   .big{font-size:clamp(72px,18vw,160px);font-weight:950;margin:10px 0;line-height:1;}
   .sub{font-size:18px;opacity:.85;}
   .row{display:flex;justify-content:space-around;gap:10px;margin-top:14px;font-size:16px;flex-wrap:wrap;}
@@ -41,267 +35,210 @@
   <div class="image">
     <div class="imgTop">
       <div class="imgLabel" id="imgText"></div>
-      <div class="tag bump" id="phaseTag">BUMP</div>
+      <div class="tag rest" id="phaseTag">REST</div>
     </div>
     <div class="svgWrap" id="img"></div>
   </div>
 
-  <div class="big" id="main">0</div>
-  <div class="sub" id="mode">Press SPACE for bumps</div>
+  <div class="big" id="main">10</div>
+  <div class="sub" id="mode">REST</div>
 
   <div class="row">
-    <div>Reps: <b id="reps">0 / 10</b></div>
-    <div>Hold: <b id="hold">10s</b></div>
     <div>Stretch: <b id="idx">1 / 10</b></div>
+    <div>Bumps: <b id="bumpInfo">10 bumps (~10s)</b></div>
+    <div>Hold: <b id="holdInfo">10s → 20s → 30s</b></div>
+    <div>Rest: <b id="restInfo">10s</b></div>
   </div>
 
-  <div class="sub" style="margin-top:14px">
-    <span class="kbd">SPACE</span> rep · <span class="kbd">N</span> next stretch ·
-    <span class="kbd">P</span> pause · <span class="kbd">R</span> reset
+  <div class="sub" style="margin-top:14px;line-height:1.6">
+    <span class="kbd">N</span> next stretch · <span class="kbd">P</span> pause · <span class="kbd">R</span> reset<br>
+    <span class="kbd">[</span>/<span class="kbd">]</span> slower/faster bumps · <span class="kbd">-</span>/<span class="kbd">=</span> rest shorter/longer
   </div>
 </div>
 
 <script>
 const stretches = [
-  "1. Shoulder Backbend",
-  "2. Spine Backbend",
-  "3. Rear Hand Clasp",
-  "4. Lying Cross",
-  "5. Wrist–Biceps Stretch",
-  "6. One-Leg Pike",
-  "7. Kneeling Lunge",
-  "8. Pancake",
-  "9. Butterfly",
-  "10. Calf Stretch"
+  "1. Shoulder Backbend","2. Spine Backbend","3. Rear Hand Clasp","4. Lying Cross","5. Wrist–Biceps Stretch",
+  "6. One-Leg Pike","7. Kneeling Lunge","8. Pancake","9. Butterfly","10. Calf Stretch"
 ];
 
-/**
- * 10 DISTINCT SVG poses (much more different than stick icons).
- * All are inline, so GitHub Pages will always show them.
- */
+// 10 distinct inline SVGs (no external files)
 const svgs = [
-  // 1 Shoulder Backbend (arms overhead)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="100" cy="30" r="10"/>
-    <path d="M100 40v45"/>
-    <path d="M100 50c-25-20-45-25-60-20"/>
-    <path d="M100 50c25-20 45-25 60-20"/>
-    <path d="M100 85c-18 12-30 25-35 40"/>
-    <path d="M100 85c18 12 30 25 35 40"/>
-  </svg>`,
-
-  // 2 Spine Backbend (arched spine)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="90" cy="28" r="10"/>
-    <path d="M95 38c30 5 45 30 35 55s-30 35-55 30"/>
-    <path d="M70 88c-12 12-20 25-25 40"/>
-    <path d="M108 88c6 14 12 26 22 40"/>
-  </svg>`,
-
-  // 3 Rear Hand Clasp (hands behind back)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="100" cy="28" r="10"/>
-    <path d="M100 38v55"/>
-    <path d="M100 55c-20 10-25 25-20 40"/>
-    <path d="M100 55c20 10 25 25 20 40"/>
-    <path d="M80 92h40"/>
-  </svg>`,
-
-  // 4 Lying Cross (horizontal body)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="55" cy="70" r="10"/>
-    <path d="M65 70h95"/>
-    <path d="M85 70v-25"/>
-    <path d="M120 70v25"/>
-    <path d="M150 70l20-20"/>
-    <path d="M150 70l20 20"/>
-  </svg>`,
-
-  // 5 Wrist–Biceps Stretch (arm bent)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="80" cy="30" r="10"/>
-    <path d="M80 40v55"/>
-    <path d="M80 55h55"/>
-    <path d="M135 55c10 0 18 8 18 18"/>
-    <path d="M153 73v22"/>
-    <path d="M80 95c-12 12-18 22-22 35"/>
-  </svg>`,
-
-  // 6 One-Leg Pike (one leg up)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="100" cy="25" r="10"/>
-    <path d="M100 35v40"/>
-    <path d="M100 75l-30 50"/>
-    <path d="M100 75l35 35"/>
-    <path d="M100 55l40-30"/>
-  </svg>`,
-
-  // 7 Kneeling Lunge (one knee down)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="90" cy="28" r="10"/>
-    <path d="M90 38v45"/>
-    <path d="M90 83l-25 35"/>
-    <path d="M90 83l35 0"/>
-    <path d="M125 83l25 35"/>
-    <path d="M90 55h45"/>
-  </svg>`,
-
-  // 8 Pancake (wide seated fold)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="100" cy="35" r="10"/>
-    <path d="M100 45l-15 25"/>
-    <path d="M85 70l-55 40"/>
-    <path d="M85 70l55 40"/>
-    <path d="M95 55l-35 15"/>
-    <path d="M105 55l35 15"/>
-  </svg>`,
-
-  // 9 Butterfly (soles together)
-  `<svg viewBox="0 0 200 140">
-    <circle cx="100" cy="30" r="10"/>
-    <path d="M100 40v30"/>
-    <path d="M100 70c-20 10-40 25-55 45"/>
-    <path d="M100 70c20 10 40 25 55 45"/>
-    <path d="M70 95c15-10 30-10 30 0"/>
-    <path d="M130 95c-15-10-30-10-30 0"/>
-  </svg>`,
-
-  // 10 Calf Stretch (lean to wall)
-  `<svg viewBox="0 0 200 140">
-    <path d="M160 20v110"/>
-    <circle cx="80" cy="35" r="10"/>
-    <path d="M80 45v45"/>
-    <path d="M80 60l60-20"/>
-    <path d="M80 90l-25 35"/>
-    <path d="M80 90l45 10"/>
-  </svg>`
+  `<svg viewBox="0 0 200 140"><circle cx="100" cy="30" r="10"/><path d="M100 40v45"/><path d="M100 50c-25-20-45-25-60-20"/><path d="M100 50c25-20 45-25 60-20"/><path d="M100 85c-18 12-30 25-35 40"/><path d="M100 85c18 12 30 25 35 40"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="90" cy="28" r="10"/><path d="M95 38c30 5 45 30 35 55s-30 35-55 30"/><path d="M70 88c-12 12-20 25-25 40"/><path d="M108 88c6 14 12 26 22 40"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="100" cy="28" r="10"/><path d="M100 38v55"/><path d="M100 55c-20 10-25 25-20 40"/><path d="M100 55c20 10 25 25 20 40"/><path d="M80 92h40"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="55" cy="70" r="10"/><path d="M65 70h95"/><path d="M85 70v-25"/><path d="M120 70v25"/><path d="M150 70l20-20"/><path d="M150 70l20 20"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="80" cy="30" r="10"/><path d="M80 40v55"/><path d="M80 55h55"/><path d="M135 55c10 0 18 8 18 18"/><path d="M153 73v22"/><path d="M80 95c-12 12-18 22-22 35"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="100" cy="25" r="10"/><path d="M100 35v40"/><path d="M100 75l-30 50"/><path d="M100 75l35 35"/><path d="M100 55l40-30"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="90" cy="28" r="10"/><path d="M90 38v45"/><path d="M90 83l-25 35"/><path d="M90 83l35 0"/><path d="M125 83l25 35"/><path d="M90 55h45"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="100" cy="35" r="10"/><path d="M100 45l-15 25"/><path d="M85 70l-55 40"/><path d="M85 70l55 40"/><path d="M95 55l-35 15"/><path d="M105 55l35 15"/></svg>`,
+  `<svg viewBox="0 0 200 140"><circle cx="100" cy="30" r="10"/><path d="M100 40v30"/><path d="M100 70c-20 10-40 25-55 45"/><path d="M100 70c20 10 40 25 55 45"/><path d="M70 95c15-10 30-10 30 0"/><path d="M130 95c-15-10-30-10-30 0"/></svg>`,
+  `<svg viewBox="0 0 200 140"><path d="M160 20v110"/><circle cx="80" cy="35" r="10"/><path d="M80 45v45"/><path d="M80 60l60-20"/><path d="M80 90l-25 35"/><path d="M80 90l45 10"/></svg>`
 ];
 
 const holds = [10,20,30];
 
-let stretchIdx=0, holdIdx=0, reps=0;
-let holding=false, paused=false, remaining=0, timer=null;
+let stretchIdx = 0;
+let holdIdx = 0;
 
-const main=document.getElementById("main");
-const mode=document.getElementById("mode");
-const repsEl=document.getElementById("reps");
-const holdEl=document.getElementById("hold");
-const idxEl=document.getElementById("idx");
-const stretchName=document.getElementById("stretchName");
-const img=document.getElementById("img");
-const imgText=document.getElementById("imgText");
-const phaseTag=document.getElementById("phaseTag");
+// USER-TUNABLE DEFAULTS
+let bumpCount = 10;
+let secondsPerBump = 1.0;     // default estimate: ~1 sec per bump
+let restSeconds = 10;         // default rest between sets
 
-function speak(text){
-  // voice disabled
-}
+// STATE
+let phase = "rest"; // "rest" | "bump" | "hold"
+let remaining = restSeconds;
+let paused = false;
+let timer = null;
+
+// DOM
+const main = document.getElementById("main");
+const mode = document.getElementById("mode");
+const idxEl = document.getElementById("idx");
+const stretchName = document.getElementById("stretchName");
+const img = document.getElementById("img");
+const imgText = document.getElementById("imgText");
+const phaseTag = document.getElementById("phaseTag");
+const bumpInfo = document.getElementById("bumpInfo");
+const restInfo = document.getElementById("restInfo");
+const holdInfo = document.getElementById("holdInfo");
 
 function beep(freq=880){
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const o=ctx.createOscillator();
-    const g=ctx.createGain();
-    o.frequency.value=freq; g.gain.value=0.08;
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.value = freq; g.gain.value = 0.08;
     o.connect(g); g.connect(ctx.destination);
     o.start(); setTimeout(()=>{o.stop();ctx.close();},120);
   }catch{}
 }
 
-function updateUI(){
-  stretchName.textContent = stretches[stretchIdx];
-  imgText.textContent = stretches[stretchIdx];          // makes the change obvious
-  img.innerHTML = svgs[stretchIdx];                     // changes image per stretch
+function bumpDurationSec(){
+  // round to nearest whole second so countdown feels normal
+  return Math.max(1, Math.round(bumpCount * secondsPerBump));
+}
 
-  repsEl.textContent = `${reps} / 10`;
-  holdEl.textContent = `${holds[holdIdx]}s`;
-  idxEl.textContent = `${stretchIdx+1} / ${stretches.length}`;
+function setPhase(newPhase){
+  phase = newPhase;
+  paused = false;
 
-  if(!holding){
-    phaseTag.textContent = "BUMP";
-    phaseTag.className = "tag bump";
-    main.textContent = reps;
-    mode.textContent = "Press SPACE for bumps";
-  }else{
-    phaseTag.textContent = "HOLD";
-    phaseTag.className = "tag hold";
-    main.textContent = remaining;
-    mode.textContent = paused ? "Paused" : `Hold for ${holds[holdIdx]}s`;
+  if(timer){ clearInterval(timer); timer=null; }
+
+  if(phase === "rest"){
+    remaining = restSeconds;
+    beep(600);
+  } else if(phase === "bump"){
+    remaining = bumpDurationSec();
+    beep(900);
+  } else if(phase === "hold"){
+    remaining = holds[holdIdx];
+    beep(1100);
+  }
+
+  updateUI();
+
+  timer = setInterval(tick, 1000);
+}
+
+function tick(){
+  if(paused) return;
+
+  remaining--;
+  if(remaining < 0) remaining = 0;
+  updateUI();
+
+  if(remaining === 0){
+    if(phase === "rest"){
+      setPhase("bump");
+    } else if(phase === "bump"){
+      setPhase("hold");
+    } else if(phase === "hold"){
+      // advance hold cycle 10 -> 20 -> 30
+      holdIdx = (holdIdx + 1) % holds.length;
+      setPhase("rest");
+    }
+  } else {
+    // little “ending soon” beeps for last 3 seconds of hold only
+    if(phase === "hold" && remaining <= 3) beep(1200);
   }
 }
 
-function startHold(){
-  holding=true;
-  paused=false;
-  remaining=holds[holdIdx];
-  beep(950);
-  speak("Hold");
-  updateUI();
+function updateUI(){
+  stretchName.textContent = stretches[stretchIdx];
+  imgText.textContent = stretches[stretchIdx];
+  img.innerHTML = svgs[stretchIdx];
+  idxEl.textContent = `${stretchIdx+1} / ${stretches.length}`;
 
-  timer=setInterval(()=>{
-    if(paused) return;
+  bumpInfo.textContent = `${bumpCount} bumps (~${bumpDurationSec()}s)`;
+  restInfo.textContent = `${restSeconds}s`;
+  holdInfo.textContent = `current: ${holds[holdIdx]}s (cycle 10→20→30)`;
 
-    remaining--;
-    if(remaining === 3) speak("3");
-    if(remaining === 2) speak("2");
-    if(remaining === 1) speak("1");
+  main.textContent = remaining;
 
-    updateUI();
-
-    if(remaining<=0){
-      clearInterval(timer);
-      holding=false;
-      reps=0;
-      holdIdx = (holdIdx + 1) % holds.length;
-      beep(500);
-      speak("Release. Start bumping.");
-      updateUI();
-    }
-  },1000);
+  if(phase === "rest"){
+    phaseTag.textContent = "REST";
+    phaseTag.className = "tag rest";
+    mode.textContent = paused ? "REST — paused" : "REST";
+  } else if(phase === "bump"){
+    phaseTag.textContent = "BUMP";
+    phaseTag.className = "tag bump";
+    mode.textContent = paused ? "BUMP — paused" : `BUMP (auto) — simulate ${bumpCount} bumps`;
+  } else {
+    phaseTag.textContent = "HOLD";
+    phaseTag.className = "tag hold";
+    mode.textContent = paused ? "HOLD — paused" : `HOLD — ${holds[holdIdx]}s`;
+  }
 }
 
 function nextStretch(){
-  if(timer) { clearInterval(timer); timer=null; }
-  holding=false;
-  paused=false;
-  reps=0;
   stretchIdx = (stretchIdx + 1) % stretches.length;
-  beep(700);
-  speak("Next stretch");
-  updateUI();
+  // start new stretch with a rest so you can get into position
+  setPhase("rest");
 }
 
 function resetAll(){
-  if(timer) { clearInterval(timer); timer=null; }
-  stretchIdx=0; holdIdx=0; reps=0;
-  holding=false; paused=false;
-  beep(440);
-  speak("Reset");
-  updateUI();
+  stretchIdx = 0;
+  holdIdx = 0;
+  setPhase("rest");
 }
 
 window.addEventListener("keydown", e=>{
-  // SPACE = count bumps (only when not holding)
-  if(e.code==="Space"){
-    e.preventDefault();
-    if(holding) return;
+  if(e.code === "KeyN") nextStretch();
+  if(e.code === "KeyP") { paused = !paused; updateUI(); }
+  if(e.code === "KeyR") resetAll();
 
-    reps++;
+  // bump speed adjust:
+  // [ slower -> secondsPerBump +0.1
+  // ] faster -> secondsPerBump -0.1
+  if(e.code === "BracketLeft"){
+    secondsPerBump = Math.min(3.0, +(secondsPerBump + 0.1).toFixed(1));
+    if(phase === "bump") { remaining = bumpDurationSec(); }
     updateUI();
-
-    if(reps >= 10){
-      // hit 10 bumps -> auto start hold
-      beep(1050);
-      speak("Ten. Hold.");
-      startHold();
-    }
+  }
+  if(e.code === "BracketRight"){
+    secondsPerBump = Math.max(0.3, +(secondsPerBump - 0.1).toFixed(1));
+    if(phase === "bump") { remaining = bumpDurationSec(); }
+    updateUI();
   }
 
-  if(e.code==="KeyN") nextStretch();
-  if(e.code==="KeyP" && holding){ paused = !paused; speak(paused ? "Paused" : "Resume"); updateUI(); }
-  if(e.code==="KeyR") resetAll();
+  // rest adjust: - shorter, = longer
+  if(e.code === "Minus"){
+    restSeconds = Math.max(0, restSeconds - 1);
+    if(phase === "rest") remaining = restSeconds;
+    updateUI();
+  }
+  if(e.code === "Equal"){
+    restSeconds = Math.min(120, restSeconds + 1);
+    if(phase === "rest") remaining = restSeconds;
+    updateUI();
+  }
 });
 
+// Start
 updateUI();
+setPhase("rest");
 </script>
 </body>
 </html>

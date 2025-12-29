@@ -4,46 +4,78 @@
 <meta charset="utf-8">
 <title>Stretch Rep + Hold Timer</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+
 <style>
-  html,body{
-    margin:0;height:100%;
-    background:#000;color:#fff;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  }
-  body{display:flex;align-items:center;justify-content:center;}
-  .card{
-    width:min(900px,95vw);
-    border:2px solid #fff;
-    border-radius:20px;
-    padding:24px;
-    text-align:center;
-  }
-  h1{font-size:20px;margin:0 0 6px;}
-  .stretch{font-size:24px;font-weight:700;margin-bottom:10px;}
-  .big{
-    font-size:clamp(72px,18vw,160px);
-    font-weight:900;
-    margin:10px 0;
-  }
-  .sub{font-size:18px;opacity:.8;}
-  .row{
-    display:flex;justify-content:space-around;
-    margin-top:14px;font-size:16px;
-  }
-  .kbd{
-    border:1px solid #fff;border-radius:8px;
-    padding:2px 8px;font-weight:700;
-  }
+html,body{
+  margin:0;height:100%;
+  background:#000;color:#fff;
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
+body{display:flex;align-items:center;justify-content:center;}
+
+.card{
+  width:min(1000px,96vw);
+  border:2px solid #fff;
+  border-radius:24px;
+  padding:24px;
+  text-align:center;
+}
+
+h1{margin:0;font-size:20px;}
+.stretch{font-size:24px;font-weight:800;margin:6px 0 10px;}
+
+.image{
+  width:100%;
+  height:260px;
+  border:2px solid #fff;
+  border-radius:18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:12px;
+}
+
+.image svg{
+  width:200px;
+  height:200px;
+  stroke:#fff;
+  fill:none;
+  stroke-width:4;
+}
+
+.big{
+  font-size:clamp(72px,18vw,160px);
+  font-weight:900;
+  margin:10px 0;
+}
+
+.sub{font-size:18px;opacity:.8;}
+
+.row{
+  display:flex;
+  justify-content:space-around;
+  margin-top:14px;
+  font-size:16px;
+}
+
+.kbd{
+  border:1px solid #fff;
+  border-radius:8px;
+  padding:2px 8px;
+  font-weight:800;
+}
 </style>
 </head>
-<body>
 
+<body>
 <div class="card">
   <h1>Stretch Routine</h1>
   <div class="stretch" id="stretchName"></div>
 
+  <div class="image" id="img"></div>
+
   <div class="big" id="main">0</div>
-  <div class="sub" id="mode">Press SPACE for reps</div>
+  <div class="sub" id="mode">Press SPACE for bumps</div>
 
   <div class="row">
     <div>Reps: <b id="reps">0 / 10</b></div>
@@ -52,7 +84,7 @@
   </div>
 
   <div class="sub" style="margin-top:14px">
-    SPACE = rep · N = next stretch · P = pause · R = reset
+    SPACE = rep · N = next · P = pause · R = reset
   </div>
 </div>
 
@@ -70,89 +102,111 @@ const stretches = [
   "10. Calf Stretch"
 ];
 
+// simple silhouette SVGs (minimal, clean)
+const svgs = [
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="20" r="8"/><path d="M50 28v40M20 50h60"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="18" r="8"/><path d="M50 26v50M30 70c10-20 30-20 40 0"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="20" r="8"/><path d="M50 28v30M20 60h60"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="30" cy="40" r="8"/><circle cx="70" cy="40" r="8"/><path d="M20 60h60"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="18" r="8"/><path d="M50 26v30M50 56h30"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="18" r="8"/><path d="M50 26v30M50 56l20 30"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="18" r="8"/><path d="M50 26v30M30 56l-10 30"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="18" r="8"/><path d="M50 26v30M30 56h40"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="18" r="8"/><path d="M30 56l20 30 20-30"/></svg>`,
+`<svg viewBox="0 0 100 100"><circle cx="50" cy="18" r="8"/><path d="M50 26v40M50 66l-15 20"/></svg>`
+];
+
 const holds = [10,20,30];
 
-let stretchIdx = 0;
-let holdIdx = 0;
-let reps = 0;
-let holding = false;
-let paused = false;
-let remaining = 0;
-let timer = null;
+let stretchIdx=0, holdIdx=0, reps=0;
+let holding=false, paused=false, remaining=0, timer=null;
 
-const main = document.getElementById("main");
-const mode = document.getElementById("mode");
-const repsEl = document.getElementById("reps");
-const holdEl = document.getElementById("hold");
-const idxEl = document.getElementById("idx");
-const stretchName = document.getElementById("stretchName");
+const main=document.getElementById("main");
+const mode=document.getElementById("mode");
+const repsEl=document.getElementById("reps");
+const holdEl=document.getElementById("hold");
+const idxEl=document.getElementById("idx");
+const stretchName=document.getElementById("stretchName");
+const img=document.getElementById("img");
+
+function speak(text){
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+function beep(freq=880){
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const o=ctx.createOscillator();
+  const g=ctx.createGain();
+  o.frequency.value=freq; g.gain.value=0.1;
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); setTimeout(()=>{o.stop();ctx.close();},120);
+}
 
 function updateUI(){
-  stretchName.textContent = stretches[stretchIdx];
-  repsEl.textContent = `${reps} / 10`;
-  holdEl.textContent = `${holds[holdIdx]}s`;
-  idxEl.textContent = `${stretchIdx+1} / ${stretches.length}`;
+  stretchName.textContent=stretches[stretchIdx];
+  img.innerHTML=svgs[stretchIdx];
+  repsEl.textContent=`${reps} / 10`;
+  holdEl.textContent=`${holds[holdIdx]}s`;
+  idxEl.textContent=`${stretchIdx+1} / ${stretches.length}`;
 
   if(!holding){
-    main.textContent = reps;
-    mode.textContent = "Press SPACE for reps";
+    main.textContent=reps;
+    mode.textContent="Press SPACE for bumps";
   }else{
-    main.textContent = remaining;
-    mode.textContent = paused ? "Paused" : "Holding";
+    main.textContent=remaining;
+    mode.textContent=paused?"Paused":"Hold";
   }
 }
 
 function startHold(){
-  holding = true;
-  remaining = holds[holdIdx];
-  updateUI();
-  timer = setInterval(()=>{
+  holding=true;
+  remaining=holds[holdIdx];
+  speak("Hold");
+  beep();
+  timer=setInterval(()=>{
     if(paused) return;
     remaining--;
+    if(remaining<=3 && remaining>0) speak(remaining);
     updateUI();
-    if(remaining <= 0){
+    if(remaining<=0){
       clearInterval(timer);
-      holding = false;
-      reps = 0;
-      holdIdx = (holdIdx + 1) % holds.length;
+      holding=false;
+      reps=0;
+      holdIdx=(holdIdx+1)%holds.length;
+      speak("Release");
+      beep(500);
+      speak("Start bumping");
       updateUI();
     }
   },1000);
 }
 
-function nextStretch(){
-  stretchIdx = (stretchIdx + 1) % stretches.length;
-  reps = 0;
-  updateUI();
-}
-
 function resetAll(){
   clearInterval(timer);
-  stretchIdx = 0;
-  holdIdx = 0;
-  reps = 0;
-  holding = false;
-  paused = false;
+  stretchIdx=0; holdIdx=0; reps=0;
+  holding=false; paused=false;
   updateUI();
 }
 
-window.addEventListener("keydown", e=>{
-  if(e.code === "Space"){
+window.addEventListener("keydown",e=>{
+  if(e.code==="Space"){
     e.preventDefault();
     if(holding) return;
     reps++;
-    if(reps >= 10){
+    if(reps===10){
+      beep();
       startHold();
     }
     updateUI();
   }
-  if(e.code === "KeyN") nextStretch();
-  if(e.code === "KeyP") paused = !paused;
-  if(e.code === "KeyR") resetAll();
+  if(e.code==="KeyN"){reps=0; stretchIdx=(stretchIdx+1)%stretches.length; speak("Next stretch"); updateUI();}
+  if(e.code==="KeyP"){paused=!paused;}
+  if(e.code==="KeyR"){resetAll();}
 });
 
+speak("Start bumping");
 updateUI();
 </script>
-
 </body>
 </html>
